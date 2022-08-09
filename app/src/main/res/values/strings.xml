@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">InternProject</string>
+    <string name="change_front_back_camera">Change front/back camera</string>
+</resources>
