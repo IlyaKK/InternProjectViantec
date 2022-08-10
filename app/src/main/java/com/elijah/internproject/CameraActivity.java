@@ -38,7 +38,7 @@ public class CameraActivity extends AppCompatActivity {
         activityCameraBinding = ActivityCameraBinding.inflate(getLayoutInflater());
         setContentView(activityCameraBinding.getRoot());
         super.onCreate(savedInstanceState);
-        initialiseCameras(savedInstanceState);
+        initialiseCamera(savedInstanceState);
         initialiseSwitchCamera();
     }
 
@@ -50,7 +50,7 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    private void initialiseCameras(Bundle savedInstanceState) {
+    private void initialiseCamera(Bundle savedInstanceState) {
         cameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         if (savedInstanceState == null) {
             currentIdDeviceCamera = CameraDeviceManager.getInitialBackCameraId(cameraManager);
