@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Size;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 
 import androidx.annotation.NonNull;
@@ -39,7 +40,6 @@ public class CameraActivity extends AppCompatActivity {
         setContentView(activityCameraBinding.getRoot());
         super.onCreate(savedInstanceState);
         initialiseCamera(savedInstanceState);
-        initialiseSwitchCamera();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -63,10 +63,11 @@ public class CameraActivity extends AppCompatActivity {
                 try {
                     deviceCameras = new CameraService[CameraDeviceManager.filterCompatibleCameras(cameraManager,
                             cameraManager.getCameraIdList()).size()];
-                    deviceCameras[Integer.parseInt(currentIdDeviceCamera)] = new CameraService(currentIdDeviceCamera, activityCameraBinding.imageCameraSurfaceView,
+                    deviceCameras[Integer.parseInt(currentIdDeviceCamera)] = new CameraService(currentIdDeviceCamera, holder.getSurface(),
                             handler, cameraManager);
                     setPreviewSize(currentIdDeviceCamera);
                     activityCameraBinding.imageCameraSurfaceView.getRootView().post(() -> openCamera(Integer.parseInt(currentIdDeviceCamera)));
+                    initialiseSwitchCamera(holder.getSurface());
                 } catch (Exception e) {
                     Log.e(APP_TAG, String.format("Create surface! from cameraId %s error %s", currentIdDeviceCamera, e.getMessage()));
                 }
@@ -84,11 +85,11 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    private void initialiseSwitchCamera() {
+    private void initialiseSwitchCamera(Surface surface) {
         activityCameraBinding.switchCameraFrontBack.setOnClickListener(l -> {
             String nextIdDeviceCamera = CameraDeviceManager.getNextCameraId(cameraManager, currentIdDeviceCamera);
             if (deviceCameras[Integer.parseInt(nextIdDeviceCamera)] == null) {
-                deviceCameras[Integer.parseInt(nextIdDeviceCamera)] = new CameraService(nextIdDeviceCamera, activityCameraBinding.imageCameraSurfaceView, handler, cameraManager);
+                deviceCameras[Integer.parseInt(nextIdDeviceCamera)] = new CameraService(nextIdDeviceCamera, surface, handler, cameraManager);
             }
             deviceCameras[Integer.parseInt(currentIdDeviceCamera)].closeCamera();
             setPreviewSize(nextIdDeviceCamera);
@@ -101,8 +102,12 @@ public class CameraActivity extends AppCompatActivity {
     private void setPreviewSize(String cameraId) {
         try {
             CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
-            Size previewSize = CameraSizes.getPreviewOutputSize(activityCameraBinding.supportFrameLayout.getWidth(), activityCameraBinding.supportFrameLayout.getHeight(), cameraCharacteristics);
-            activityCameraBinding.imageCameraSurfaceView.setSizes(previewSize.getWidth(), previewSize.getHeight(), activityCameraBinding.supportFrameLayout.getWidth(), activityCameraBinding.supportFrameLayout.getHeight());
+            Size previewSize = CameraSizes.getPreviewOutputSize(activityCameraBinding.supportFrameLayout.getWidth(),
+                    activityCameraBinding.supportFrameLayout.getHeight(),
+                    cameraCharacteristics);
+            activityCameraBinding.imageCameraSurfaceView.setSizes(previewSize.getWidth(),
+                    previewSize.getHeight(), activityCameraBinding.supportFrameLayout.getWidth(),
+                    activityCameraBinding.supportFrameLayout.getHeight());
         } catch (Exception e) {
             Log.e(APP_TAG, "Set PreviewSize! camera id: " + cameraId + e.getMessage());
         }
@@ -141,7 +146,8 @@ public class CameraActivity extends AppCompatActivity {
             handlerThread = null;
             handler = null;
         } catch (Exception e) {
-            Log.e(APP_TAG, String.format("Stop background thread for cameraId %s! error %s", currentIdDeviceCamera, e.getMessage()));
+            Log.e(APP_TAG, String.format("Stop background thread for cameraId %s! error %s",
+                    currentIdDeviceCamera, e.getMessage()));
         }
     }
 

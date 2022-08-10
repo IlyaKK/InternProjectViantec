@@ -1,7 +1,6 @@
 package com.elijah.internproject;
 
 import android.annotation.SuppressLint;
-import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
@@ -10,7 +9,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.Surface;
-import android.view.SurfaceView;
 
 import androidx.annotation.RequiresApi;
 
@@ -23,11 +21,11 @@ public class CameraService {
     private Handler handler;
     private final CameraManager cameraManager;
     private final String cameraID;
-    private final SurfaceView imageCameraSurfaceView;
+    private final Surface imageCameraSurface;
 
-    public CameraService(String cameraID, SurfaceView imageCameraSurfaceView, Handler handler, CameraManager cameraManager) {
+    public CameraService(String cameraID, Surface imageCameraSurface, Handler handler, CameraManager cameraManager) {
         this.cameraID = cameraID;
-        this.imageCameraSurfaceView = imageCameraSurfaceView;
+        this.imageCameraSurface = imageCameraSurface;
         this.handler = handler;
         this.cameraManager = cameraManager;
     }
@@ -58,7 +56,7 @@ public class CameraService {
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     private void createCameraPreviewSession() {
-        Surface surface = imageCameraSurfaceView.getHolder().getSurface();
+        Surface surface = imageCameraSurface;
         try {
             final CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             builder.addTarget(surface);
