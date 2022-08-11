@@ -34,7 +34,7 @@ public class CameraService {
         this.handler = handler;
     }
 
-    private final CameraDevice.StateCallback mCameraCallback = new CameraDevice.StateCallback() {
+    private final CameraDevice.StateCallback cameraStateCallback = new CameraDevice.StateCallback() {
         @RequiresApi(api = Build.VERSION_CODES.N)
         @Override
         public void onOpened(CameraDevice camera) {
@@ -58,15 +58,15 @@ public class CameraService {
     private void createCameraPreviewSession() {
         Surface surface = imageCameraSurface;
         try {
-            final CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            builder.addTarget(surface);
+            final CaptureRequest.Builder captureRequest = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            captureRequest.addTarget(surface);
             cameraDevice.createCaptureSession(Collections.singletonList(surface),
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession session) {
                             cameraCaptureSession = session;
                             try {
-                                cameraCaptureSession.setRepeatingRequest(builder.build(), null, handler);
+                                cameraCaptureSession.setRepeatingRequest(captureRequest.build(), null, handler);
                             } catch (Exception e) {
                                 Log.e(APP_TAG, String.format("Camera capture Session! Error: %s", e.getMessage()));
                             }
@@ -86,7 +86,7 @@ public class CameraService {
     @SuppressLint("MissingPermission")
     public void openCamera() {
         try {
-            cameraManager.openCamera(cameraID, mCameraCallback, handler);
+            cameraManager.openCamera(cameraID, cameraStateCallback, handler);
         } catch (Exception e) {
             Log.e(APP_TAG, String.format("Open camera! Error: %s", e.getMessage()));
         }

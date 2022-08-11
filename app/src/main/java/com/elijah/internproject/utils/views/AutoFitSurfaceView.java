@@ -31,7 +31,6 @@ public class AutoFitSurfaceView extends SurfaceView {
         this.previewSizeHeight = previewSizeHeight;
         this.widthContainerPreview = widthContainerPreview;
         this.heightContainerPreview = heightContainerPreview;
-        getHolder().setFixedSize(previewSizeWidth, previewSizeHeight);
         requestLayout();
     }
 
