@@ -26,7 +26,9 @@ public class AutoFitSurfaceView extends SurfaceView {
         super(context, attrs, defStyleAttr);
     }
 
-    public void setSizes(Integer previewSizeWidth, Integer previewSizeHeight, Integer widthContainerPreview, Integer heightContainerPreview) {
+    public void setSizes(Integer previewSizeWidth, Integer previewSizeHeight,
+                         Integer widthContainerPreview,
+                         Integer heightContainerPreview) {
         this.previewSizeWidth = previewSizeWidth;
         this.previewSizeHeight = previewSizeHeight;
         this.widthContainerPreview = widthContainerPreview;
@@ -37,16 +39,17 @@ public class AutoFitSurfaceView extends SurfaceView {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        @SuppressLint("DrawAllocation") RectF rectDisplay = new RectF();
+        @SuppressLint("DrawAllocation") RectF rectContainer = new RectF();
         @SuppressLint("DrawAllocation") RectF rectPreview = new RectF();
-        rectDisplay.set(0, 0, widthContainerPreview, heightContainerPreview);
-        if (getDisplay().getRotation() == Surface.ROTATION_0 || getDisplay().getRotation() == Surface.ROTATION_180) {
+        rectContainer.set(0, 0, widthContainerPreview, heightContainerPreview);
+        if (getDisplay().getRotation() == Surface.ROTATION_0 ||
+                getDisplay().getRotation() == Surface.ROTATION_180) {
             rectPreview.set(0, 0, previewSizeHeight, previewSizeWidth);
         } else {
             rectPreview.set(0, 0, previewSizeWidth, previewSizeHeight);
         }
         @SuppressLint("DrawAllocation") Matrix matrix = new Matrix();
-        matrix.setRectToRect(rectPreview, rectDisplay,
+        matrix.setRectToRect(rectPreview, rectContainer,
                 Matrix.ScaleToFit.START);
         matrix.mapRect(rectPreview);
         setMeasuredDimension(Math.round(rectPreview.right), Math.round(rectPreview.bottom));

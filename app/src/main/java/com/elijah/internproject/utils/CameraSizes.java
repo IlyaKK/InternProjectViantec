@@ -28,7 +28,9 @@ public class CameraSizes {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    public static Size getPreviewOutputSize(Integer widthSupportFrameLayout, Integer heightSupportFrameLayout, CameraCharacteristics cameraCharacteristics) {
+    public static Size getPreviewOutputSize(Integer widthSupportFrameLayout,
+                                            Integer heightSupportFrameLayout,
+                                            CameraCharacteristics cameraCharacteristics) {
         SmartSize maxSize = new SmartSize(widthSupportFrameLayout, heightSupportFrameLayout);
         StreamConfigurationMap config = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size[] allSizes = config.getOutputSizes(SurfaceHolder.class);

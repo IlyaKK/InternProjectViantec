@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CameraDeviceManager {
-    private static final String TAG = "Camera device service";
+    private static final String TAG = "Camera device manager";
 
     public static List<String> filterCompatibleCameras(CameraManager cameraManager, String[] cameraIds) {
         final List<String> compatibleCameras = new ArrayList<>();
