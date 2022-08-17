@@ -2,8 +2,10 @@ package com.elijah.internproject;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,6 +14,7 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -19,33 +22,45 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.elijah.internproject.databinding.ActivityCameraBinding;
+import com.elijah.internproject.databinding.ActivityMainBinding;
+import com.elijah.internproject.libs.fftpack.ComplexDoubleFFT;
+import com.elijah.internproject.utils.AudioDeviceManager;
+import com.elijah.internproject.utils.AudioRecordController;
 import com.elijah.internproject.utils.CameraDeviceManager;
 import com.elijah.internproject.utils.CameraSizes;
+import com.elijah.internproject.utils.FFTControl;
+import com.jjoe64.graphview.series.LineGraphSeries;
+import com.jjoe64.graphview.series.DataPoint;
 
-public class CameraActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
     public final String APP_TAG = "CAMERA ACTIVITY";
     private final String KEY_CURRENT_CAMERA_OF_DEVICE = "KEY_CURRENT_CAMERA_OF_DEVICE";
-    private ActivityCameraBinding activityCameraBinding;
+    private ActivityMainBinding activityMainBinding;
     private CameraService[] deviceCameras = null;
     private CameraManager cameraManager = null;
     private String currentIdDeviceCamera = null;
     private HandlerThread handlerThread;
     private Handler handler;
+    private AudioRecordController audioRecordController;
+    private LineGraphSeries<DataPoint> pointAmplitudeFrequencyLineGraphSeries = null;
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
+    @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        activityCameraBinding = ActivityCameraBinding.inflate(getLayoutInflater());
-        setContentView(activityCameraBinding.getRoot());
+        activityMainBinding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(activityMainBinding.getRoot());
         super.onCreate(savedInstanceState);
         initialiseCamera(savedInstanceState);
+        initialiseAudioRecording();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onResume() {
         startBackgroundThread();
+        if (audioRecordController != null) {
+            startAudioRecording();
+        }
         super.onResume();
     }
 
@@ -57,7 +72,7 @@ public class CameraActivity extends AppCompatActivity {
         } else {
             currentIdDeviceCamera = savedInstanceState.getString(KEY_CURRENT_CAMERA_OF_DEVICE);
         }
-        activityCameraBinding.imageCameraSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+        activityMainBinding.imageCameraSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(@NonNull SurfaceHolder holder) {
                 try {
@@ -66,7 +81,7 @@ public class CameraActivity extends AppCompatActivity {
                     deviceCameras[Integer.parseInt(currentIdDeviceCamera)] = new CameraService(currentIdDeviceCamera, holder.getSurface(),
                             handler, cameraManager);
                     setPreviewSize(currentIdDeviceCamera);
-                    activityCameraBinding.imageCameraSurfaceView.getRootView().post(() -> openCamera(Integer.parseInt(currentIdDeviceCamera)));
+                    activityMainBinding.imageCameraSurfaceView.getRootView().post(() -> openCamera(Integer.parseInt(currentIdDeviceCamera)));
                     initialiseSwitchCamera(holder.getSurface());
                 } catch (Exception e) {
                     Log.e(APP_TAG, String.format("Create surface! from cameraId %s error %s", currentIdDeviceCamera, e.getMessage()));
@@ -86,7 +101,7 @@ public class CameraActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     private void initialiseSwitchCamera(Surface surface) {
-        activityCameraBinding.switchCameraFrontBack.setOnClickListener(l -> {
+        activityMainBinding.switchCameraFrontBack.setOnClickListener(l -> {
             String nextIdDeviceCamera = CameraDeviceManager.getNextCameraId(cameraManager, currentIdDeviceCamera);
             if (deviceCameras[Integer.parseInt(nextIdDeviceCamera)] == null) {
                 deviceCameras[Integer.parseInt(nextIdDeviceCamera)] = new CameraService(nextIdDeviceCamera, surface, handler, cameraManager);
@@ -102,12 +117,12 @@ public class CameraActivity extends AppCompatActivity {
     private void setPreviewSize(String cameraId) {
         try {
             CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
-            Size previewSize = CameraSizes.getPreviewOutputSize(activityCameraBinding.supportFrameLayout.getWidth(),
-                    activityCameraBinding.supportFrameLayout.getHeight(),
+            Size previewSize = CameraSizes.getPreviewOutputSize(activityMainBinding.supportFrameLayout.getWidth(),
+                    activityMainBinding.supportFrameLayout.getHeight(),
                     cameraCharacteristics);
-            activityCameraBinding.imageCameraSurfaceView.setSizes(previewSize.getWidth(),
-                    previewSize.getHeight(), activityCameraBinding.supportFrameLayout.getWidth(),
-                    activityCameraBinding.supportFrameLayout.getHeight());
+            activityMainBinding.imageCameraSurfaceView.setSizes(previewSize.getWidth(),
+                    previewSize.getHeight(), activityMainBinding.supportFrameLayout.getWidth(),
+                    activityMainBinding.supportFrameLayout.getHeight());
         } catch (Exception e) {
             Log.e(APP_TAG, "Set PreviewSize! camera id: " + cameraId + e.getMessage());
         }
@@ -151,6 +166,44 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.P)
+    private void initialiseAudioRecording() {
+        AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (AudioDeviceManager.checkAvailableMicrophone(audioManager)) {
+            audioRecordController = new AudioRecordController();
+            initialiseGraphView();
+        } else {
+            Toast.makeText(this, "На устройстве нет микрофона", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private void startAudioRecording() {
+        audioRecordController.start();
+        FFTControl fftControl = new FFTControl();
+        fftControl.transformAudioData(audioRecordController, audioSpector -> {
+            DataPoint[] dataAmpFreqPoint = new DataPoint[audioSpector.length];
+            for (int i = 0; i < audioSpector.length; i++) {
+                dataAmpFreqPoint[i] = new DataPoint(audioSpector[i][1], audioSpector[i][0]);
+            }
+            runOnUiThread(() -> pointAmplitudeFrequencyLineGraphSeries.resetData(dataAmpFreqPoint));
+        });
+    }
+
+    private void initialiseGraphView() {
+        pointAmplitudeFrequencyLineGraphSeries = new LineGraphSeries<>();
+        pointAmplitudeFrequencyLineGraphSeries.setColor(Color.RED);
+        activityMainBinding.graphView.getViewport().setMaxY(0);
+        activityMainBinding.graphView.getViewport().setMinY(-120);
+        activityMainBinding.graphView.getViewport().setYAxisBoundsManual(true);
+        activityMainBinding.graphView.getViewport().setMaxX(8000);
+        activityMainBinding.graphView.getViewport().setMinX(0);
+        activityMainBinding.graphView.getViewport().setXAxisBoundsManual(true);
+        activityMainBinding.graphView.addSeries(pointAmplitudeFrequencyLineGraphSeries);
+        activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle("Гц");
+        activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle("Дб");
+    }
+
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         outState.putString(KEY_CURRENT_CAMERA_OF_DEVICE, currentIdDeviceCamera);
@@ -165,6 +218,9 @@ public class CameraActivity extends AppCompatActivity {
             }
         }
         stopBackgroundThread();
+        if (audioRecordController.isAudioRecording()) {
+            audioRecordController.stop();
+        }
         super.onPause();
     }
 }

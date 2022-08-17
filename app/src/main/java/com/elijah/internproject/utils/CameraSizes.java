@@ -15,18 +15,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class CameraSizes {
-    private static class SmartSize {
-        public Size size;
-        public Integer longSize;
-        public Integer shortSize;
-
-        public SmartSize(Integer width, Integer height) {
-            size = new Size(width, height);
-            longSize = Math.max(size.getWidth(), size.getHeight());
-            shortSize = Math.min(size.getWidth(), size.getHeight());
-        }
-    }
-
     @RequiresApi(api = Build.VERSION_CODES.N)
     public static Size getPreviewOutputSize(Integer widthSupportFrameLayout,
                                             Integer heightSupportFrameLayout,
@@ -42,5 +30,17 @@ public class CameraSizes {
         Collections.reverse(validSizes);
         return validSizes.stream()
                 .filter(s -> s.longSize <= maxSize.longSize && s.shortSize <= maxSize.shortSize).findFirst().get().size;
+    }
+}
+
+class SmartSize {
+    public Size size;
+    public Integer longSize;
+    public Integer shortSize;
+
+    public SmartSize(Integer width, Integer height) {
+        size = new Size(width, height);
+        longSize = Math.max(size.getWidth(), size.getHeight());
+        shortSize = Math.min(size.getWidth(), size.getHeight());
     }
 }
