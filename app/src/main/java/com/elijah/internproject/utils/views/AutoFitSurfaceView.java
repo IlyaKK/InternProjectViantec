@@ -33,6 +33,7 @@ public class AutoFitSurfaceView extends SurfaceView {
         this.previewSizeHeight = previewSizeHeight;
         this.widthContainerPreview = widthContainerPreview;
         this.heightContainerPreview = heightContainerPreview;
+        getHolder().setFixedSize(previewSizeWidth, previewSizeHeight);
         requestLayout();
     }
 
@@ -44,9 +45,17 @@ public class AutoFitSurfaceView extends SurfaceView {
         rectContainer.set(0, 0, widthContainerPreview, heightContainerPreview);
         if (getDisplay().getRotation() == Surface.ROTATION_0 ||
                 getDisplay().getRotation() == Surface.ROTATION_180) {
-            rectPreview.set(0, 0, previewSizeHeight, previewSizeWidth);
+            if (previewSizeHeight <= previewSizeWidth) {
+                rectPreview.set(0, 0, previewSizeHeight, previewSizeWidth);
+            } else {
+                rectPreview.set(0, 0, previewSizeWidth, previewSizeHeight);
+            }
         } else {
-            rectPreview.set(0, 0, previewSizeWidth, previewSizeHeight);
+            if (previewSizeHeight <= previewSizeWidth) {
+                rectPreview.set(0, 0, previewSizeWidth, previewSizeHeight);
+            } else {
+                rectPreview.set(0, 0, previewSizeHeight, previewSizeWidth);
+            }
         }
         @SuppressLint("DrawAllocation") Matrix matrix = new Matrix();
         matrix.setRectToRect(rectPreview, rectContainer,
