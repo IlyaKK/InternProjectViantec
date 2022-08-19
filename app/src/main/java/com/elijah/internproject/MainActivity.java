@@ -2,7 +2,6 @@ package com.elijah.internproject;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioManager;
@@ -23,26 +22,31 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.elijah.internproject.databinding.ActivityMainBinding;
-import com.elijah.internproject.libs.fftpack.ComplexDoubleFFT;
+import com.elijah.internproject.domain.ModeAmplitude;
 import com.elijah.internproject.utils.AudioDeviceManager;
 import com.elijah.internproject.utils.AudioRecordController;
 import com.elijah.internproject.utils.CameraDeviceManager;
 import com.elijah.internproject.utils.CameraSizes;
 import com.elijah.internproject.utils.FFTControl;
-import com.jjoe64.graphview.series.LineGraphSeries;
+import com.jjoe64.graphview.series.BarGraphSeries;
+import com.jjoe64.graphview.series.BaseSeries;
 import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
 
 public class MainActivity extends AppCompatActivity {
-    public final String APP_TAG = "CAMERA ACTIVITY";
+    private static final String KEY_MODE_Y_AXIS = "KEY_MODE_Y_AXIS";
     private final String KEY_CURRENT_CAMERA_OF_DEVICE = "KEY_CURRENT_CAMERA_OF_DEVICE";
+    public final String APP_TAG = "CAMERA ACTIVITY";
     private ActivityMainBinding activityMainBinding;
     private CameraService[] deviceCameras = null;
     private CameraManager cameraManager = null;
     private String currentIdDeviceCamera = null;
     private HandlerThread handlerThread;
     private Handler handler;
-    private AudioRecordController audioRecordController;
-    private LineGraphSeries<DataPoint> pointAmplitudeFrequencyLineGraphSeries = null;
+    private AudioRecordController audioRecordController = null;
+    private BaseSeries<DataPoint> pointAmplitudeFrequencyBaseGraphSeries = null;
+    private ModeAmplitude currentModeAmplitude = null;
+    private FFTControl fftControl = null;
 
     @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
@@ -51,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(activityMainBinding.getRoot());
         super.onCreate(savedInstanceState);
         initialiseCamera(savedInstanceState);
-        initialiseAudioRecording();
+        initialiseAudioRecording(savedInstanceState);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -101,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     private void initialiseSwitchCamera(Surface surface) {
-        activityMainBinding.switchCameraFrontBack.setOnClickListener(l -> {
+        activityMainBinding.switchCameraFrontBackButton.setOnClickListener(l -> {
             String nextIdDeviceCamera = CameraDeviceManager.getNextCameraId(cameraManager, currentIdDeviceCamera);
             if (deviceCameras[Integer.parseInt(nextIdDeviceCamera)] == null) {
                 deviceCameras[Integer.parseInt(nextIdDeviceCamera)] = new CameraService(nextIdDeviceCamera, surface, handler, cameraManager);
@@ -167,11 +171,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.P)
-    private void initialiseAudioRecording() {
+    private void initialiseAudioRecording(Bundle savedInstanceState) {
         AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
-        if (AudioDeviceManager.checkAvailableMicrophone(audioManager)) {
+        if (AudioDeviceManager.isAvailableMicrophone(audioManager)) {
             audioRecordController = new AudioRecordController();
-            initialiseGraphView();
+            initialiseGraphView(savedInstanceState);
         } else {
             Toast.makeText(this, "На устройстве нет микрофона", Toast.LENGTH_LONG).show();
         }
@@ -180,32 +184,97 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void startAudioRecording() {
         audioRecordController.start();
-        FFTControl fftControl = new FFTControl();
+        fftControl = new FFTControl(currentModeAmplitude);
+        initialiseSwitchModeAmplitudeAxis();
         fftControl.transformAudioData(audioRecordController, audioSpector -> {
             DataPoint[] dataAmpFreqPoint = new DataPoint[audioSpector.length];
             for (int i = 0; i < audioSpector.length; i++) {
                 dataAmpFreqPoint[i] = new DataPoint(audioSpector[i][1], audioSpector[i][0]);
             }
-            runOnUiThread(() -> pointAmplitudeFrequencyLineGraphSeries.resetData(dataAmpFreqPoint));
+            runOnUiThread(() -> pointAmplitudeFrequencyBaseGraphSeries.resetData(dataAmpFreqPoint));
         });
     }
 
-    private void initialiseGraphView() {
-        pointAmplitudeFrequencyLineGraphSeries = new LineGraphSeries<>();
-        pointAmplitudeFrequencyLineGraphSeries.setColor(Color.RED);
-        activityMainBinding.graphView.getViewport().setMaxY(0);
-        activityMainBinding.graphView.getViewport().setMinY(-120);
+    private void initialiseSwitchModeAmplitudeAxis() {
+        activityMainBinding.radioGroupSwitchDB.setOnCheckedChangeListener((group, checkedId) -> {
+            switch (checkedId) {
+                case R.id.db_fs_radio_button:
+                    activityMainBinding.graphView.getSeries().clear();
+                    pointAmplitudeFrequencyBaseGraphSeries = new LineGraphSeries<>();
+                    pointAmplitudeFrequencyBaseGraphSeries.setColor(getResources().getColor(R.color.light_green));
+                    activityMainBinding.graphView.addSeries(pointAmplitudeFrequencyBaseGraphSeries);
+                    currentModeAmplitude = ModeAmplitude.FS_MODE;
+                    fftControl.setModeAmplitude(currentModeAmplitude);
+                    activityMainBinding.graphView.getViewport().setMaxY(0);
+                    activityMainBinding.graphView.getViewport().setMinY(-120);
+                    activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle(getString(R.string.hg_axis_title));
+                    activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle(getString(R.string.dB_fs_axis_title));
+                    break;
+                case R.id.db_spl_radio_button:
+                    activityMainBinding.graphView.getSeries().clear();
+                    pointAmplitudeFrequencyBaseGraphSeries = new BarGraphSeries<>();
+                    pointAmplitudeFrequencyBaseGraphSeries.setColor(getResources().getColor(R.color.light_green));
+                    activityMainBinding.graphView.addSeries(pointAmplitudeFrequencyBaseGraphSeries);
+                    currentModeAmplitude = ModeAmplitude.SPL_MODE;
+                    fftControl.setModeAmplitude(currentModeAmplitude);
+                    activityMainBinding.graphView.getViewport().setMaxY(120);
+                    activityMainBinding.graphView.getViewport().setMinY(0);
+                    activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle(getString(R.string.hg_axis_title));
+                    activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle(getString(R.string.db_spl_axis_title));
+                    break;
+            }
+        });
+    }
+
+    private void initialiseGraphView(Bundle savedInstanceState) {
         activityMainBinding.graphView.getViewport().setYAxisBoundsManual(true);
+        if (savedInstanceState != null) {
+            if (savedInstanceState.getInt(KEY_MODE_Y_AXIS) == ModeAmplitude.FS_MODE.getNumber()) {
+                currentModeAmplitude = ModeAmplitude.FS_MODE;
+                activityMainBinding.dbFsRadioButton.setChecked(true);
+                pointAmplitudeFrequencyBaseGraphSeries = new LineGraphSeries<>();
+                activityMainBinding.graphView.getViewport().setMaxY(0);
+                activityMainBinding.graphView.getViewport().setMinY(-120);
+                activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle(getString(R.string.hg_axis_title));
+                activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle(getString(R.string.dB_fs_axis_title));
+            } else {
+                currentModeAmplitude = ModeAmplitude.SPL_MODE;
+                activityMainBinding.dbSplRadioButton.setChecked(true);
+                pointAmplitudeFrequencyBaseGraphSeries = new BarGraphSeries<>();
+                activityMainBinding.graphView.getViewport().setMaxY(120);
+                activityMainBinding.graphView.getViewport().setMinY(0);
+                activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle(getString(R.string.hg_axis_title));
+                activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle(getString(R.string.db_spl_axis_title));
+            }
+        } else {
+            currentModeAmplitude = ModeAmplitude.FS_MODE;
+            activityMainBinding.dbFsRadioButton.setChecked(true);
+            pointAmplitudeFrequencyBaseGraphSeries = new LineGraphSeries<>();
+            activityMainBinding.graphView.getViewport().setMaxY(0);
+            activityMainBinding.graphView.getViewport().setMinY(-120);
+            activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle(getString(R.string.hg_axis_title));
+            activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle(getString(R.string.dB_fs_axis_title));
+        }
+        pointAmplitudeFrequencyBaseGraphSeries.setColor(getResources().getColor(R.color.light_green));
+        activityMainBinding.graphView.addSeries(pointAmplitudeFrequencyBaseGraphSeries);
+        activityMainBinding.graphView.setBackgroundColor(getResources().getColor(R.color.black));
+
+        activityMainBinding.graphView.getViewport().setXAxisBoundsManual(true);
+        activityMainBinding.graphView.getViewport().setScalable(true);
         activityMainBinding.graphView.getViewport().setMaxX(8000);
         activityMainBinding.graphView.getViewport().setMinX(0);
-        activityMainBinding.graphView.getViewport().setXAxisBoundsManual(true);
-        activityMainBinding.graphView.addSeries(pointAmplitudeFrequencyLineGraphSeries);
-        activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitle("Гц");
-        activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitle("Дб");
+
+        activityMainBinding.graphView.getGridLabelRenderer().setNumHorizontalLabels(4);
+        activityMainBinding.graphView.getGridLabelRenderer().setGridColor(getResources().getColor(R.color.white));
+        activityMainBinding.graphView.getGridLabelRenderer().setHorizontalAxisTitleColor(getResources().getColor(R.color.white));
+        activityMainBinding.graphView.getGridLabelRenderer().setVerticalAxisTitleColor(getResources().getColor(R.color.white));
+        activityMainBinding.graphView.getGridLabelRenderer().setHorizontalLabelsColor(getResources().getColor(R.color.white));
+        activityMainBinding.graphView.getGridLabelRenderer().setVerticalLabelsColor(getResources().getColor(R.color.white));
     }
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putInt(KEY_MODE_Y_AXIS, currentModeAmplitude.getNumber());
         outState.putString(KEY_CURRENT_CAMERA_OF_DEVICE, currentIdDeviceCamera);
         super.onSaveInstanceState(outState);
     }

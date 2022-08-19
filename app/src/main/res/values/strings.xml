@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">InternProject</string>
     <string name="change_front_back_camera">Change front/back camera</string>
+    <string name="spl_db_radio_button">дБ[SPL]</string>
+    <string name="fs_db_radio_button">дБ[FS]</string>
+    <string name="hg_axis_title">Гц</string>
+    <string name="dB_fs_axis_title">дБ[FS]</string>
+    <string name="db_spl_axis_title">дБ[SPL]</string>
 </resources>

@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 public class AudioDeviceManager {
     @RequiresApi(api = Build.VERSION_CODES.P)
-    public static boolean checkAvailableMicrophone(AudioManager audioManager) {
+    public static boolean isAvailableMicrophone(AudioManager audioManager) {
         try {
             List<MicrophoneInfo> list = audioManager.getMicrophones();
             Log.i("AudioDeviceManager", String.format("%s",
