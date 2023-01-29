@@ -9,6 +9,9 @@ import com.elijah.internproject.domain.ModeAmplitude;
 import com.elijah.internproject.libs.fftpack.Complex1D;
 import com.elijah.internproject.libs.fftpack.ComplexDoubleFFT;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
 public class FFTControl {
     private final Window window = new Window();
     private static final double SPL = 2.0 * Math.pow(10, -5);
@@ -58,14 +61,14 @@ public class FFTControl {
         return spectorAudio;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    public void transformAudioData(AudioRecordController audioRecordController, FFTTransformer fftTransformer) {
-        new Thread(() -> {
+    public Future<?> transformAudioData(AudioRecordController audioRecordController, ExecutorService executorService, FFTTransformer fftTransformer) {
+        Runnable runnable = () -> {
             while (audioRecordController.isAudioRecording()) {
                 short[] data = audioRecordController.getAudioData();
                 double[][] spectorData = transform(data);
                 fftTransformer.setAudioSpector(spectorData);
             }
-        }).start();
+        };
+        return executorService.submit(runnable);
     }
 }

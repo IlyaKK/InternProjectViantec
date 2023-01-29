@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class CameraSizes {
-    @RequiresApi(api = Build.VERSION_CODES.N)
     public static Size getPreviewOutputSize(Integer widthSupportFrameLayout,
                                             Integer heightSupportFrameLayout,
                                             CameraCharacteristics cameraCharacteristics) {

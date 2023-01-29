@@ -33,6 +33,10 @@ import com.jjoe64.graphview.series.BaseSeries;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 public class MainActivity extends AppCompatActivity {
     private static final String KEY_MODE_Y_AXIS = "KEY_MODE_Y_AXIS";
     private final String KEY_CURRENT_CAMERA_OF_DEVICE = "KEY_CURRENT_CAMERA_OF_DEVICE";
@@ -42,11 +46,13 @@ public class MainActivity extends AppCompatActivity {
     private CameraManager cameraManager = null;
     private String currentIdDeviceCamera = null;
     private HandlerThread handlerThread;
-    private Handler handler;
+    private Handler handlerCamera;
     private AudioRecordController audioRecordController = null;
     private BaseSeries<DataPoint> pointAmplitudeFrequencyBaseGraphSeries = null;
     private ModeAmplitude currentModeAmplitude = null;
     private FFTControl fftControl = null;
+    private final ExecutorService executorServiceForFFT = Executors.newSingleThreadExecutor();
+    private Future<?> taskAudioFFT;
 
     @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
@@ -58,7 +64,6 @@ public class MainActivity extends AppCompatActivity {
         initialiseAudioRecording(savedInstanceState);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onResume() {
         startBackgroundThread();
@@ -68,7 +73,6 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private void initialiseCamera(Bundle savedInstanceState) {
         cameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         if (savedInstanceState == null) {
@@ -83,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
                     deviceCameras = new CameraService[CameraDeviceManager.filterCompatibleCameras(cameraManager,
                             cameraManager.getCameraIdList()).size()];
                     deviceCameras[Integer.parseInt(currentIdDeviceCamera)] = new CameraService(currentIdDeviceCamera, holder.getSurface(),
-                            handler, cameraManager);
+                            handlerCamera, cameraManager);
                     setPreviewSize(currentIdDeviceCamera);
                     activityMainBinding.imageCameraSurfaceView.getRootView().post(() -> openCamera(Integer.parseInt(currentIdDeviceCamera)));
                     initialiseSwitchCamera(holder.getSurface());
@@ -103,12 +107,11 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private void initialiseSwitchCamera(Surface surface) {
         activityMainBinding.switchCameraFrontBackButton.setOnClickListener(l -> {
             String nextIdDeviceCamera = CameraDeviceManager.getNextCameraId(cameraManager, currentIdDeviceCamera);
             if (deviceCameras[Integer.parseInt(nextIdDeviceCamera)] == null) {
-                deviceCameras[Integer.parseInt(nextIdDeviceCamera)] = new CameraService(nextIdDeviceCamera, surface, handler, cameraManager);
+                deviceCameras[Integer.parseInt(nextIdDeviceCamera)] = new CameraService(nextIdDeviceCamera, surface, handlerCamera, cameraManager);
             }
             deviceCameras[Integer.parseInt(currentIdDeviceCamera)].closeCamera();
             setPreviewSize(nextIdDeviceCamera);
@@ -117,7 +120,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private void setPreviewSize(String cameraId) {
         try {
             CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
@@ -132,7 +134,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private void openCamera(int camera) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             if (deviceCameras[camera] != null) {
@@ -148,11 +149,11 @@ public class MainActivity extends AppCompatActivity {
     private void startBackgroundThread() {
         handlerThread = new HandlerThread("CameraBackground");
         handlerThread.start();
-        handler = new Handler(handlerThread.getLooper());
+        handlerCamera = new Handler(handlerThread.getLooper());
         if (deviceCameras != null) {
             for (CameraService cameraService : deviceCameras) {
                 if (cameraService != null) {
-                    cameraService.setHandler(handler);
+                    cameraService.setHandler(handlerCamera);
                 }
             }
         }
@@ -163,12 +164,13 @@ public class MainActivity extends AppCompatActivity {
         try {
             handlerThread.join();
             handlerThread = null;
-            handler = null;
+            handlerCamera = null;
         } catch (Exception e) {
             Log.e(APP_TAG, String.format("Stop background thread for cameraId %s! error %s",
                     currentIdDeviceCamera, e.getMessage()));
         }
     }
+
 
     @RequiresApi(api = Build.VERSION_CODES.P)
     private void initialiseAudioRecording(Bundle savedInstanceState) {
@@ -181,12 +183,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
     private void startAudioRecording() {
         audioRecordController.start();
         fftControl = new FFTControl(currentModeAmplitude);
         initialiseSwitchModeAmplitudeAxis();
-        fftControl.transformAudioData(audioRecordController, audioSpector -> {
+        taskAudioFFT = fftControl.transformAudioData(audioRecordController, executorServiceForFFT, audioSpector -> {
             DataPoint[] dataAmpFreqPoint = new DataPoint[audioSpector.length];
             for (int i = 0; i < audioSpector.length; i++) {
                 dataAmpFreqPoint[i] = new DataPoint(audioSpector[i][1], audioSpector[i][0]);
@@ -290,6 +291,7 @@ public class MainActivity extends AppCompatActivity {
         if (audioRecordController.isAudioRecording()) {
             audioRecordController.stop();
         }
+        taskAudioFFT.cancel(true);
         super.onPause();
     }
 }

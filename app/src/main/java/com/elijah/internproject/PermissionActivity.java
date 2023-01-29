@@ -19,7 +19,6 @@ public class PermissionActivity extends AppCompatActivity {
     public static final int REQUEST_CODE_RECORD_AUDIO_PERMISSION = 2;
     public static final int REQUEST_CODE_ALL_PERMISSION = 3;
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         setContentView(R.layout.activity_permission);
@@ -27,7 +26,6 @@ public class PermissionActivity extends AppCompatActivity {
         checkPermission();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
     private void checkPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -47,7 +45,6 @@ public class PermissionActivity extends AppCompatActivity {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
