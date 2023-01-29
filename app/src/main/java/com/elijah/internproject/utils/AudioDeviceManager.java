@@ -18,7 +18,7 @@ public class AudioDeviceManager {
             List<MicrophoneInfo> list = audioManager.getMicrophones();
             Log.i("AudioDeviceManager", String.format("%s",
                     list.stream()
-                            .map(MicrophoneInfo::getDescription)
+                            .map(MicrophoneInfo::getId)
                             .collect(Collectors.toList())));
             return !list.isEmpty();
 

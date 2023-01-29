@@ -4,9 +4,6 @@ import android.annotation.SuppressLint;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.os.Build;
-
-import androidx.annotation.RequiresApi;
 
 public class AudioRecordController {
     private AudioRecord audioRecorder;
@@ -35,7 +32,6 @@ public class AudioRecordController {
         return audioRecorder != null;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
     public short[] getAudioData() {
         short[] audioData = new short[BLOCK_SIZE];
         audioRecorder.read(audioData, 0, BLOCK_SIZE);
